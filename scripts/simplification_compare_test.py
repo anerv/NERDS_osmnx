@@ -87,21 +87,23 @@ def _is_endpoint(G, node, attributes = None, strict=True):
     # except if the attributes is not None and the values are different
     else:
         if not attributes is None:
-            if type(attributes) is list:
-                for attr in attributes:
-                    if (G.edges[list(G.predecessors(node))[0], node, 0][attr]) == (
-                            G.edges[node, list(G.successors(node))[0], 0][attr]):
-                        pass
+            for pre in list(G.predecessors(node)):
+                for suc in list(G.successors(node)):
+                    if type(attributes) is list:
+                        for attr in attributes:
+                            if (G.edges[pre, node, 0][attr]) == (
+                                    G.edges[node, suc, 0][attr]):
+                                pass
+                            else:
+                                print(G.edges[pre, node, 0][attr],
+                                      G.edges[node, suc, 0][attr])
+                                return True
                     else:
-                        print(G.edges[list(G.predecessors(node))[0], node, 0][attr],
-                              G.edges[node, list(G.successors(node))[0], 0][attr])
-                        return True
-            else:
-                if (G.edges[list(G.predecessors(node))[0], node, 0][attributes]) == (
-                        G.edges[node, list(G.successors(node))[0], 0][attributes]):
-                    pass
-                else:
-                    return True
+                        if (G.edges[pre, node, 0][attributes]) == (
+                                G.edges[node, suc, 0][attributes]):
+                            pass
+                        else:
+                            return True
             return False
         else:
             return False
@@ -318,12 +320,21 @@ if __name__ == "__main__":
         metro.edges[u, v, k]['random_color'] = np.random.randint(3)
     simple_metro = simplify_graph(metro, attributes = 'random_color')
     
+    original_simple_metro = simplify_graph(metro)
+    
     ###visualization
     ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
     ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 5, edge_color = ec, 
                   edge_linewidth = 1.5)
-    s_ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
+    s_ec = ox.plot.get_edge_colors_by_attr(simple_metro,
+                                           'random_color', cmap='Set1')
     ox.plot_graph(simple_metro, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 5, edge_color = s_ec, 
+                  edge_linewidth = 1.5)
+    
+    os_ec = ox.plot.get_edge_colors_by_attr(original_simple_metro,
+                                            'random_color', cmap='Set1')
+    ox.plot_graph(original_simple_metro, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'black', node_size = 5, edge_color = os_ec, 
                   edge_linewidth = 1.5)
