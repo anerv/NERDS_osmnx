@@ -62,23 +62,7 @@ def _is_endpoint(G, node, attributes = None, strict=True):
         # has 2 neighbors but 3 degree (indicating a change from oneway to 
         # twoway) or more than 4 degree (indicating a parallel edge) and thus 
         # is an endpoint
-        if not attributes is None:
-            if type(attributes) is list:
-                for attr in attributes:
-                    if (G.edges[list(G.predecessors(node))[0], node, 0][attr]) == (
-                            G.edges[node, list(G.successors(node))[0], 0][attr]):
-                        pass
-                    else:
-                        print(G.edges[list(G.predecessors(node))[0], node, 0][attr],
-                              G.edges[node, list(G.successors(node))[0], 0][attr])
-                        return True
-            else:
-                if (G.edges[list(G.predecessors(node))[0], node, 0][attributes]) == (
-                        G.edges[node, list(G.successors(node))[0], 0][attributes]):
-                    pass
-                else:
-                    return True
-        return False
+        return True
 
     # rule 4
     elif not strict:
@@ -100,8 +84,27 @@ def _is_endpoint(G, node, attributes = None, strict=True):
         return len(set(osmids)) > 1
 
     # if none of the preceding rules returned true, then it is not an endpoint
+    # except if the attributes is not None and the values are different
     else:
-        return False
+        if not attributes is None:
+            if type(attributes) is list:
+                for attr in attributes:
+                    if (G.edges[list(G.predecessors(node))[0], node, 0][attr]) == (
+                            G.edges[node, list(G.successors(node))[0], 0][attr]):
+                        pass
+                    else:
+                        print(G.edges[list(G.predecessors(node))[0], node, 0][attr],
+                              G.edges[node, list(G.successors(node))[0], 0][attr])
+                        return True
+            else:
+                if (G.edges[list(G.predecessors(node))[0], node, 0][attributes]) == (
+                        G.edges[node, list(G.successors(node))[0], 0][attributes]):
+                    pass
+                else:
+                    return True
+            return False
+        else:
+            return False
 
 
 def _build_path(G, endpoint, endpoint_successor, endpoints):
@@ -310,14 +313,17 @@ if __name__ == "__main__":
     metro_poly = shapely.ops.unary_union([cop['geometry'][0],
                                           fre['geometry'][0]])
     metro = ox.graph_from_polygon(metro_poly, simplify = False)
+    np.random.seed(seed = 2550024)
     for (u, v, k) in metro.edges:
-        metro.edges[u, v, k]['random_color'] = float(np.random.randint(3))/2.
+        metro.edges[u, v, k]['random_color'] = np.random.randint(3)
     simple_metro = simplify_graph(metro, attributes = 'random_color')
-    # ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
-    # ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
-    #               node_color = 'black', node_size = 5, edge_color = ec, 
-    #               edge_linewidth = 1.5)
-    # s_ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
-    # ox.plot_graph(simple_metro, figsize = (12, 8), bgcolor = 'w', 
-    #               node_color = 'black', node_size = 5, edge_color = s_ec, 
-    #               edge_linewidth = 1.5)
+    
+    ###visualization
+    ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
+    ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'black', node_size = 5, edge_color = ec, 
+                  edge_linewidth = 1.5)
+    s_ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
+    ox.plot_graph(simple_metro, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'black', node_size = 5, edge_color = s_ec, 
+                  edge_linewidth = 1.5)
