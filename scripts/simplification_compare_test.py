@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Attempt to modify the simplification functions from OSMnx.
 """
 
 import networkx as nx
 from shapely.geometry import Point
 from shapely.geometry import LineString
+import osmnx as ox
+import geopandas as gpd
+import numpy as np
+import shapely
 
 def _is_endpoint(G, node, attributes = None, strict=True):
     """
@@ -60,13 +63,22 @@ def _is_endpoint(G, node, attributes = None, strict=True):
         # twoway) or more than 4 degree (indicating a parallel edge) and thus 
         # is an endpoint
         if not attributes is None:
-            for attr in attributes:
-                if (G.edges[list(G.predecessors(node))[0], node, 0][attr]) == (
-                        G.edges[node, list(G.successors(node))[0], 0][attr]):
+            if type(attributes) is list:
+                for attr in attributes:
+                    if (G.edges[list(G.predecessors(node))[0], node, 0][attr]) == (
+                            G.edges[node, list(G.successors(node))[0], 0][attr]):
+                        pass
+                    else:
+                        print(G.edges[list(G.predecessors(node))[0], node, 0][attr],
+                              G.edges[node, list(G.successors(node))[0], 0][attr])
+                        return True
+            else:
+                if (G.edges[list(G.predecessors(node))[0], node, 0][attributes]) == (
+                        G.edges[node, list(G.successors(node))[0], 0][attributes]):
                     pass
                 else:
-                    return False
-        return True
+                    return True
+        return False
 
     # rule 4
     elif not strict:
@@ -291,3 +303,21 @@ def simplify_graph(G, attributes = None, strict=True, remove_rings=True):
     # mark graph as having been simplified
     G.graph["simplified"] = True
     return G
+
+if __name__ == "__main__":
+    cop = gpd.read_file("copenhagen_poly.geojson")
+    fre = gpd.read_file("frederiksberg_poly.geojson")
+    metro_poly = shapely.ops.unary_union([cop['geometry'][0],
+                                          fre['geometry'][0]])
+    metro = ox.graph_from_polygon(metro_poly, simplify = False)
+    for (u, v, k) in metro.edges:
+        metro.edges[u, v, k]['random_color'] = float(np.random.randint(3))/2.
+    simple_metro = simplify_graph(metro, attributes = 'random_color')
+    # ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
+    # ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
+    #               node_color = 'black', node_size = 5, edge_color = ec, 
+    #               edge_linewidth = 1.5)
+    # s_ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
+    # ox.plot_graph(simple_metro, figsize = (12, 8), bgcolor = 'w', 
+    #               node_color = 'black', node_size = 5, edge_color = s_ec, 
+    #               edge_linewidth = 1.5)
