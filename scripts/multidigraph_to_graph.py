@@ -14,91 +14,158 @@ import osmnx as ox
 
 
 def multidigraph_to_graph(graph, attributes = None):
-    ug = get_undirected(graph, attributes = attributes)
-    initial_node_list = list(ug.nodes())
-    for node in initial_node_list:
+    """
+    Transform a MultiDiGraph into an undirected Graph by first removing the
+    direction, making a MultiGraph, and then making it a Graph by making
+    sure that there is no multiple edges : for self-loop we create two nodes 
+    within the geometry of the edge, for node with multiple edges we
+    create one node within each geometry of the edge. We avoid to merge
+    directed edges without the same arbitrary attributes.
+
+    Parameters
+    ----------
+    graph : networkx.classes.multidigraph.MultiDiGraph
+        MultiDiGraph we want to transform.
+    attributes : list or str or number, optional
+        Key to the attributes we want to discriminate. The default is None.
+
+    Returns
+    -------
+    simple_graph : networkx.classes.graph.Graph
+        Undirected graph made from the initial MultiDiGraph.
+
+    """
+    ug = get_undirected(graph, attributes = attributes) # make it undirected
+    initial_node_list = list(ug.nodes()) # to avoid issue with changing 
+    for node in initial_node_list: # number of node during the process
         neighbors = np.transpose(list(ug.edges(node)))[1]
-        if node in neighbors:
+        if node in neighbors: # then self_loop, need 2 artifical nodes
             ug = _solve_self_loop(ug, node)
         for n in neighbors:
-            if ug.number_of_edges(node, n) > 1:
+            if ug.number_of_edges(node, n) > 1: #then multiple path, need 1
                 ug = _solve_multiple_path(ug, node, n)
-    simple_graph = nx.Graph(ug)
+    simple_graph = nx.Graph(ug) #if no multiple edges, simply change the type
     return simple_graph
             
             
 def _solve_self_loop(graph, node):
+    """
+    Transform a loop where a node is connected to itself by adding two nodes
+    in the geometry of the loop, in order to make it simple (no multiple edges)
+
+    Parameters
+    ----------
+    graph : networkx.classes.multidigraph.MultiDiGraph
+        MultiDiGraph we want to transform.
+    node : int
+        Node's ID where there is a self-loop.
+
+    Returns
+    -------
+    graph : networkx.classes.multidigraph.MultiDiGraph
+        MultiDiGraph with the self-loop resolved.
+
+    """
     n_loop = graph.number_of_edges(node, node)
     for i in range(n_loop):
-        edge_attributes = dict(graph.edges[node, node, i])
-        geom = edge_attributes['geometry']
-        edge_attributes.pop('geometry')
+        edge_attributes = dict(graph.edges[node, node, i]) # take attributes
+        geom = list(edge_attributes['geometry'].coords[:])
+        edge_attributes.pop('geometry') # remove geometry
         graph.remove_edge(node, node, i)
-        f_num = node + 1
+        f_num = node + 1 # find unique ID not already in the graph
         while f_num in graph.nodes():
             f_num += 1
         s_num = f_num + 1
         while s_num in graph.nodes():
             s_num += 1
-        #TODO : add street_count to nodes
+        # TODO : add street_count to nodes
+        # Add nodes as the first and last point in the LineString geometry
+        # if we don't count the original node of the self-loop
         graph.add_node(f_num, 
-                       x = geom.coords[:][1][0],
-                       y = geom.coords[:][1][1])
+                       x = geom[1][0],
+                       y = geom[1][1])
         graph.add_node(s_num,
-                       x = geom.coords[:][-2][0],
-                       y = geom.coords[:][-2][1])
-        graph.add_edge(node, f_num, key = 0,
+                       x = geom[-2][0],
+                       y = geom[-2][1])
+        # Connect them with edges keeping the attributes and having in total
+        # the same geometry as before
+        graph.add_edge(node, f_num, key = 0, 
+                       **edge_attributes,    
+                       geometry = LineString(geom[:2]))
+        graph.add_edge(node, s_num, key = 0, 
                        **edge_attributes,
-                       geometry = LineString(geom.coords[:][:2]))
-        graph.add_edge(node, s_num, key = 0,
-                       **edge_attributes,
-                       geometry = LineString(geom.coords[:][-2:]))
+                       geometry = LineString(geom[-2:]))
         graph.add_edge(f_num, s_num, key = 0,
                        **edge_attributes,
-                       geometry = LineString(geom.coords[:][1:-1]))
+                       geometry = LineString(geom[1:-1]))
     return graph
 
 def _solve_multiple_path(graph, node, other_node):
+    """
+    Transform multiple paths between nodes by adding artifical nodes on every
+    path but one, in order to make it simple (no multiple edges)
+
+    Parameters
+    ----------
+    graph : networkx.classes.multidigraph.MultiDiGraph
+        MultiDiGraph we want to transform.
+    node : int
+        First node's ID.
+    other_node : int
+        Second node's ID.
+
+    Returns
+    -------
+    graph : networkx.classes.multidigraph.MultiDiGraph
+        MultiDiGraph with the multiple path issue solved.
+
+    """
+    # for every path but one, to add as little number of node as needed
     for i in list(graph.get_edge_data(node, other_node).keys())[:-1]:
         # TODO : make a count of len(number_of_edge)-1 and skip
         # places where the len of the geometry = 2 ?
         if len(list(graph.edges[node, other_node, i]['geometry'].coords[:])) > 2:
+            # take attributes
             edge_attributes = dict(graph.edges[node, other_node, i])
-            geom = edge_attributes['geometry']
-            edge_attributes.pop('geometry')
+            geom = list(edge_attributes['geometry'].coords[:]) 
+            edge_attributes.pop('geometry') #remove geometry
             graph.remove_edge(node, other_node, i)
-            p_num = node + other_node
+            p_num = node + 1 # find ID that is not already in the graph
             while p_num in graph.nodes():
                 p_num += 1
-            graph.add_node(p_num,
-                           x = geom.coords[:][1][0],
-                           y = geom.coords[:][1][1])
+            graph.add_node(p_num, # add node as the first point of the geometry
+                           x = geom[1][0],
+                           y = geom[1][1])
+            # Connect it with edges keeping the attributes and having in total
+            # the same geometry as before
             graph.add_edge(node, p_num, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom.coords[:][:2]))
+                           geometry = LineString(geom[:2]))
             graph.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom.coords[:][1:]))
-        else:
+                           geometry = LineString(geom[1:]))
+        else: #if straight line
             edge_attributes = dict(graph.edges[node, other_node, i])
-            geom = edge_attributes['geometry']
+            geom = list(edge_attributes['geometry'].coords[:])
             edge_attributes.pop('geometry')
-            mid_x = (geom.coords[:][0][0] + geom.coords[:][1][0])/2.
-            mid_y = (geom.coords[:][0][1] + geom.coords[:][1][1])/2.
-            geom.insert(1, (mid_x, mid_y))
+            mid_x = (geom[0][0] + geom[1][0])/2. # take middle coordinates
+            mid_y = (geom[0][1] + geom[1][1])/2.
+            geom.insert(1, (mid_x, mid_y)) # insert it into the geometry
             graph.remove_edge(node, other_node, i)
-            p_num = node + other_node
+            p_num = node + 1# find ID that is not already in the graph
             while p_num in graph.nodes():
                 p_num += 1
-            graph.add_node(p_num,
-                           x = geom.coords[:][1][0],
-                           y = geom.coords[:][1][1])
+            graph.add_node(p_num, # add node as the first point of the geometry
+                           x = geom[1][0],
+                           y = geom[1][1])
+            # Connect it with edges keeping the attributes and having in total
+            # the same geometry as before
             graph.add_edge(node, p_num, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom.coords[:][:2]))
+                           geometry = LineString(geom[:2]))
             graph.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom.coords[:][1:]))
+                           geometry = LineString(geom[1:]))
     return graph
 
 def get_undirected(G, attributes = None):
@@ -160,7 +227,7 @@ def get_undirected(G, attributes = None):
                     # compare the first edge's data to the second's
                     # if they match up, flag the duplicate for removal
                     data2 = H.edges[u1, v1, key2]
-                    if _is_duplicate_edge(data1, data2):
+                    if _is_duplicate_edge(data1, data2, attributes = attributes):
                         duplicate_edges.add((u1, v1, key2))
 
     H.remove_edges_from(duplicate_edges)
@@ -309,7 +376,7 @@ def graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True,
         raise ValueError("you must request nodes or edges or both")
             
 
-def _is_duplicate_edge(data1, data2):
+def _is_duplicate_edge(data1, data2, attributes = None):
     """
     Check if two graph edge data dicts have the same osmid and geometry.
 
@@ -335,17 +402,33 @@ def _is_duplicate_edge(data1, data2):
     if osmid1 == osmid2:
 
         # if both edges have geometry attributes and they match each other
-        if ("geometry" in data1) and ("geometry" in data2):
-            if _is_same_geometry(data1["geometry"], data2["geometry"]):
+        if attributes is None:
+            if ("geometry" in data1) and ("geometry" in data2):
+                if _is_same_geometry(data1["geometry"], data2["geometry"]):
+                    is_dupe = True
+    
+            # if neither edge has a geometry attribute
+            elif ("geometry" not in data1) and ("geometry" not in data2):
                 is_dupe = True
-
-        # if neither edge has a geometry attribute
-        elif ("geometry" not in data1) and ("geometry" not in data2):
-            is_dupe = True
-
-        # if one edge has geometry attribute but the other doesn't: not dupes
+    
+            # if one edge has geometry attribute but the other doesn't: not dupes
+            else:
+                pass
+        elif type(attributes) is list:
+            # TODO: Dumb way to do it, find a better one
+            count = 0
+            for attr in attributes:
+                if data1[attr] == data2[attr]:
+                    count += 1
+                else:
+                    pass
+            if count == len(attributes):
+                is_dupe = True
+            else:
+                pass
         else:
-            pass
+            if data1[attributes] == data2[attributes]:
+                is_dupe = True
 
     return is_dupe
 
@@ -696,5 +779,8 @@ if __name__ == "__main__":
                   node_color = 'black', node_size = 5, edge_color = 'r', 
                   edge_linewidth = 1.5)
     ox.plot_graph(original_simple_metro, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'black', node_size = 5, edge_color = 'r', 
+                  edge_linewidth = 1.5)
+    ox.plot_graph(simpler_metro, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 5, edge_color = 'r', 
                   edge_linewidth = 1.5)
