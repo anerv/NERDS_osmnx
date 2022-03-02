@@ -6,38 +6,8 @@
 import geopandas as gpd
 import shapely
 import osmnx as ox
-import networkx as nx
 import folium
 import numpy as np
-
-def get_edges_attributes_list(graph):
-    "Get all the possible value for all attributes for edges of the graph"
-    if type(graph) is nx.classes.multidigraph.MultiDiGraph:
-        attr_dict = dict()
-        for edge in metro.edges():
-            for attr in list(metro.edges[edge[0], edge[1], 0].keys()):
-                if attr in attr_dict:
-                    if metro.edges[edge[0], edge[1], 0][attr] in attr_dict[attr]:
-                        pass
-                    else:
-                        attr_dict[attr].append(metro.edges[edge[0],
-                                                            edge[1], 0][attr])
-                else:
-                    attr_dict[attr] = [metro.edges[edge[0], edge[1], 0][attr]]
-    elif type(graph) is nx.classes.graph.Graph:
-        attr_dict = dict()
-        for edge in metro.edges():
-            for attr in list(metro.edges[edge[0], edge[1]].keys()):
-                if attr in attr_dict:
-                    if metro.edges[edge[0], edge[1]][attr] in attr_dict[attr]:
-                        pass
-                    else:
-                        attr_dict[attr].append(metro.edges[edge[0],
-                                                            edge[1]][attr])
-                else:
-                    attr_dict[attr] = [metro.edges[edge[0], edge[1]][attr]]
-    return attr_dict
-        
 
 if __name__ == "__main__":
     cop = gpd.read_file("copenhagen_poly.geojson")
@@ -45,15 +15,18 @@ if __name__ == "__main__":
     metro_poly = shapely.ops.unary_union([cop['geometry'][0],
                                           fre['geometry'][0]])
     metro = ox.graph_from_polygon(metro_poly, simplify = False)
-    for (u, v, k) in metro.edges:
-        metro.edges[u, v, k]['random_color'] = float(np.random.randint(3))/2.
-    ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
-    ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
-                  node_color = 'black', node_size = 5, edge_color = ec, 
-                  edge_linewidth = 1.5)
+    
+    #### Add a random color
+    
+    # for (u, v, k) in metro.edges:
+    #     metro.edges[u, v, k]['random_color'] = float(np.random.randint(3))/2.
+    # ec = ox.plot.get_edge_colors_by_attr(metro, 'random_color', cmap='Set1')
+    # ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
+    #               node_color = 'black', node_size = 5, edge_color = ec, 
+    #               edge_linewidth = 1.5)
     
     
-    ####For visualisation purpose only !
+    #### For visualisation purpose only !
     # cf = '["highway"~"cycleway|pedestrian|primary|secondary|tertiary"]'
     # metro = ox.graph_from_polygon(metro_poly, simplify = False,
     #                               custom_filter = cf)
