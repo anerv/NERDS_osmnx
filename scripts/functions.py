@@ -11,7 +11,8 @@ from shapely.geometry import Point
 import networkx as nx
 
 # New function
-def multidigraph_to_graph(graph, attributes = None, verbose = False):
+def multidigraph_to_graph(graph, attributes = None,
+                          verbose = False, debug = False):
     """
     Transform a MultiDiGraph into an undirected Graph by first removing the
     direction, making a MultiGraph, and then making it a Graph by making
@@ -27,26 +28,42 @@ def multidigraph_to_graph(graph, attributes = None, verbose = False):
     attributes : list or str or number, optional
         Key to the attributes we want to discriminate. The default is None.
     verbose : bool, optional
-        If True, give the number of self-loop and multiple path found.
-        The default is True.
+        If True, give the number of self-loop and multiple path found, and
+        the nodes with multiple straight edge between 
+        (sign of bad OSM practice). The default is False.
+    debug : bool, optional
+        If True, return a dictionary with every osmid and geometry of 
+        self-loop and multiple path. The default is False.
 
     Returns
     -------
     simple_graph : networkx.classes.graph.Graph
         Undirected graph made from the initial MultiDiGraph.
+    debug_dict : dict
+        Dictionary of every osmid and geometry of self-loop and multiple
+        path to return only if debug is True.
 
     """
     if verbose is True:
         self_loop_count = 0
         multiple_path_count = dict()
+    if debug is True:
+        debug_dict = dict()
+        debug_dict['self-loop'] = []
+        debug_dict['multiple-path'] = []
     ug = get_undirected(graph, attributes = attributes) # make it undirected
     initial_node_list = list(ug.nodes()) # to avoid issue with changing 
     for node in initial_node_list: # number of node during the process
         neighbors = np.transpose(list(ug.edges(node)))[1]
         if node in neighbors: # then self_loop, need 2 artifical nodes
-            if verbose is True:
-                self_loop_count +=1
-            ug = _solve_self_loop(ug, node)
+            for k in list(graph.get_edge_data(node, node).keys()):
+                if verbose is True:
+                    self_loop_count +=1
+                if debug is True:
+                    debug_dict['self-loop'].append([
+                        ug.edges[node, node, k]['osmid'],
+                        ug.edges[node, node, k]['geometry']])
+                ug = _solve_self_loop(ug, node, k)
         for n in neighbors:
             if ug.number_of_edges(node, n) > 1: #then multiple path, need 1
                 if verbose is True:
@@ -54,7 +71,12 @@ def multidigraph_to_graph(graph, attributes = None, verbose = False):
                         multiple_path_count[ug.number_of_edges(node, n)] += 1
                     else:
                         multiple_path_count[ug.number_of_edges(node, n)] = 1
-                ug = _solve_multiple_path(ug, node, n)
+                if debug is True:
+                    for k in list(graph.get_edge_data(node, n).keys()):
+                        debug_dict['multiple-path'].append([
+                            ug.edges[node, n, k]['osmid'],
+                            ug.edges[node, n, k]['geometry']])
+                ug = _solve_multiple_path(ug, node, n, verbose = verbose)
     simple_graph = nx.Graph(ug) #if no multiple edges, simply change the type
     if verbose is True:
         print("""
@@ -62,66 +84,66 @@ def multidigraph_to_graph(graph, attributes = None, verbose = False):
               Number of multiple path between nodes found : {}
               """.format(self_loop_count, multiple_path_count)
               )
-        # TODO: Return them or just print about it ?
-        return simple_graph, self_loop_count, multiple_path_count
+    if debug is True:
+        return simple_graph, debug_dict
     else:
         return simple_graph
      
 # New function        
-def _solve_self_loop(graph, node):
+def _solve_self_loop(graph, node, key):
     """
     Transform a loop where a node is connected to itself by adding two nodes
     in the geometry of the loop, in order to make it simple (no multiple edges)
 
     Parameters
     ----------
-    graph : networkx.classes.multidigraph.MultiDiGraph
-        MultiDiGraph we want to transform.
+    graph : networkx.MultiGraph
+        MultiGraph we want to transform.
     node : int
         Node's ID where there is a self-loop.
+    key : int
+        Key of the edge, needed because the graph is a MultiGraph
 
     Returns
     -------
-    graph : networkx.classes.multidigraph.MultiDiGraph
-        MultiDiGraph with the self-loop resolved.
+    graph : networkx.MultiGraph
+        MultiGraph with the self-loop resolved.
 
     """
-    n_loop = graph.number_of_edges(node, node)
-    for i in range(n_loop):
-        edge_attributes = dict(graph.edges[node, node, i]) # take attributes
-        geom = list(edge_attributes['geometry'].coords[:])
-        edge_attributes.pop('geometry') # remove geometry
-        graph.remove_edge(node, node, i)
-        f_num = node + 1 # find unique ID not already in the graph
-        while f_num in graph.nodes():
-            f_num += 1
-        s_num = f_num + 1
-        while s_num in graph.nodes():
-            s_num += 1
-        # TODO : add street_count to nodes
-        # Add nodes as the first and last point in the LineString geometry
-        # if we don't count the original node of the self-loop
-        graph.add_node(f_num, 
-                       x = geom[1][0],
-                       y = geom[1][1])
-        graph.add_node(s_num,
-                       x = geom[-2][0],
-                       y = geom[-2][1])
-        # Connect them with edges keeping the attributes and having in total
-        # the same geometry as before
-        graph.add_edge(node, f_num, key = 0, 
-                       **edge_attributes,    
-                       geometry = LineString(geom[:2]))
-        graph.add_edge(node, s_num, key = 0, 
-                       **edge_attributes,
-                       geometry = LineString(geom[-2:]))
-        graph.add_edge(f_num, s_num, key = 0,
-                       **edge_attributes,
-                       geometry = LineString(geom[1:-1]))
+    edge_attributes = dict(graph.edges[node, node, key]) # take attributes
+    geom = list(edge_attributes['geometry'].coords[:])
+    edge_attributes.pop('geometry') # remove geometry
+    graph.remove_edge(node, node, key)
+    f_num = node + 1 # find unique ID not already in the graph
+    while f_num in graph.nodes():
+        f_num += 1
+    s_num = f_num + 1
+    while s_num in graph.nodes():
+        s_num += 1
+    # TODO : add street_count to nodes
+    # Add nodes as the first and last point in the LineString geometry
+    # if we don't count the original node of the self-loop
+    graph.add_node(f_num, 
+                   x = geom[1][0],
+                   y = geom[1][1])
+    graph.add_node(s_num,
+                   x = geom[-2][0],
+                   y = geom[-2][1])
+    # Connect them with edges keeping the attributes and having in total
+    # the same geometry as before
+    graph.add_edge(node, f_num, key = 0, 
+                   **edge_attributes,    
+                   geometry = LineString(geom[:2]))
+    graph.add_edge(node, s_num, key = 0, 
+                   **edge_attributes,
+                   geometry = LineString(geom[-2:]))
+    graph.add_edge(f_num, s_num, key = 0,
+                   **edge_attributes,
+                   geometry = LineString(geom[1:-1]))
     return graph
 
 # New function
-def _solve_multiple_path(graph, node, other_node):
+def _solve_multiple_path(graph, node, other_node, verbose = False):
     """
     Transform multiple paths between nodes by adding artifical nodes on every
     path but one, in order to make it simple (no multiple edges)
@@ -134,6 +156,9 @@ def _solve_multiple_path(graph, node, other_node):
         First node's ID.
     other_node : int
         Second node's ID.
+    verbose : bool, optional
+        If True, give  the nodes with multiple straight edge between 
+        (sign of bad OSM practice) and their keys. The default is False.
 
     Returns
     -------
@@ -142,10 +167,14 @@ def _solve_multiple_path(graph, node, other_node):
 
     """
     # for every path but one, to add as little number of node as needed
-    for i in list(graph.get_edge_data(node, other_node).keys())[:-1]:
-        # TODO : make a count of len(number_of_edge)-1 and skip
-        # places where the len of the geometry = 2 ?
-        if len(list(graph.edges[node, other_node, i]['geometry'].coords[:])) > 2:
+    count = 0
+    straigth_key = []
+    for i in list(graph.get_edge_data(node, other_node).keys()):
+        if count == graph.number_of_edges(node, other_node) - 1:
+            pass
+        if len(list(
+                graph.edges[node, other_node, i]['geometry'].coords[:]
+                )) > 2:
             # take attributes
             edge_attributes = dict(graph.edges[node, other_node, i])
             geom = list(edge_attributes['geometry'].coords[:]) 
@@ -165,14 +194,24 @@ def _solve_multiple_path(graph, node, other_node):
             graph.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
                            geometry = LineString(geom[1:]))
+            count += 1
         else: #if straight line
-            edge_attributes = dict(graph.edges[node, other_node, i])
+            straigth_key.append(i)
+    if count < graph.number_of_edges(node, other_node) - 1:
+        if verbose is True:
+            print("""
+                  Multiple straight path between node {} and {} at the keys 
+                  {}
+                  """.format(node, other_node, straigth_key))
+        while count < graph.number_of_edges(node, other_node) - 1:
+            s = straigth_key[0]
+            edge_attributes = dict(graph.edges[node, other_node, s])
             geom = list(edge_attributes['geometry'].coords[:])
             edge_attributes.pop('geometry')
             mid_x = (geom[0][0] + geom[1][0])/2. # take middle coordinates
             mid_y = (geom[0][1] + geom[1][1])/2.
             geom.insert(1, (mid_x, mid_y)) # insert it into the geometry
-            graph.remove_edge(node, other_node, i)
+            graph.remove_edge(node, other_node, s)
             p_num = node + 1# find ID that is not already in the graph
             while p_num in graph.nodes():
                 p_num += 1
@@ -187,6 +226,8 @@ def _solve_multiple_path(graph, node, other_node):
             graph.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
                            geometry = LineString(geom[1:]))
+            straigth_key.remove(s)
+            count += 1
     return graph
 
 # Modified function

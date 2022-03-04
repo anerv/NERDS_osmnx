@@ -67,7 +67,8 @@ if __name__ == "__main__":
                   node_color = 'black', node_size = 30, edge_color = ec_s, 
                   edge_linewidth = 3)
     
-    G_graph, sl, mp = multidigraph_to_graph(G_simple, verbose = True)
+    G_graph, debug_dict = multidigraph_to_graph(G_simple,
+                                                verbose = True, debug = True)
     ec_g = ox.plot.get_edge_colors_by_attr(G_graph, 'color', cmap='Set1')
     ox.plot_graph(G_graph, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 30, edge_color = ec_g, 
