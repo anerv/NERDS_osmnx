@@ -8,10 +8,11 @@ import shapely
 import osmnx as ox
 
 if __name__ == "__main__":
-    cop = gpd.read_file("copenhagen_poly.geojson")
-    fre = gpd.read_file("frederiksberg_poly.geojson")
+    cop = ox.geocode_to_gdf("Copenhagen Municipality")
+    fre = ox.geocode_to_gdf("Frederiksberg Municipality")
     metro_poly = shapely.ops.unary_union([cop['geometry'][0],
                                           fre['geometry'][0]])
-    # TODO: Look to fill the polygon of copenhagen instead, and get it 
-    # from osmnx in order to not need a file ?
     metro = ox.graph_from_polygon(metro_poly, simplify = False)
+    ox.plot_graph(metro, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'black', node_size = 30, edge_color = 'r', 
+                  edge_linewidth = 3)
