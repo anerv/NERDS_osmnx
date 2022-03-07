@@ -9,6 +9,8 @@ import itertools
 from shapely.geometry import LineString
 from shapely.geometry import Point
 import networkx as nx
+from haversine import haversine
+from haversine import Unit
 
 # New function
 def multidigraph_to_graph(graph, attributes = None,
@@ -113,6 +115,7 @@ def _solve_self_loop(graph, node, key):
     edge_attributes = dict(graph.edges[node, node, key]) # take attributes
     geom = list(edge_attributes['geometry'].coords[:])
     edge_attributes.pop('geometry') # remove geometry
+    edge_attributes.pop('length') # remove length
     graph.remove_edge(node, node, key)
     f_num = node + 1 # find unique ID not already in the graph
     while f_num in graph.nodes():
@@ -133,13 +136,16 @@ def _solve_self_loop(graph, node, key):
     # the same geometry as before
     graph.add_edge(node, f_num, key = 0, 
                    **edge_attributes,    
-                   geometry = LineString(geom[:2]))
+                   geometry = LineString(geom[:2]),
+                   length = _get_length(graph, node, f_num))
     graph.add_edge(node, s_num, key = 0, 
                    **edge_attributes,
-                   geometry = LineString(geom[-2:]))
+                   geometry = LineString(geom[-2:]),
+                   length = _get_length(graph, node, s_num))
     graph.add_edge(f_num, s_num, key = 0,
                    **edge_attributes,
-                   geometry = LineString(geom[1:-1]))
+                   geometry = LineString(geom[1:-1]),
+                   length = _get_length(graph, s_num, f_num))
     return graph
 
 # New function
@@ -179,6 +185,7 @@ def _solve_multiple_path(graph, node, other_node, verbose = False):
             edge_attributes = dict(graph.edges[node, other_node, i])
             geom = list(edge_attributes['geometry'].coords[:]) 
             edge_attributes.pop('geometry') #remove geometry
+            edge_attributes.pop('length') # remove length
             graph.remove_edge(node, other_node, i)
             p_num = node + 1 # find ID that is not already in the graph
             while p_num in graph.nodes():
@@ -190,10 +197,12 @@ def _solve_multiple_path(graph, node, other_node, verbose = False):
             # the same geometry as before
             graph.add_edge(node, p_num, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom[:2]))
+                           geometry = LineString(geom[:2]),
+                           length = _get_length(graph, node, p_num))
             graph.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom[1:]))
+                           geometry = LineString(geom[1:]),
+                           length = _get_length(graph, other_node, p_num))
             count += 1
         else: #if straight line
             straigth_key.append(i)
@@ -207,7 +216,8 @@ def _solve_multiple_path(graph, node, other_node, verbose = False):
             s = straigth_key[0]
             edge_attributes = dict(graph.edges[node, other_node, s])
             geom = list(edge_attributes['geometry'].coords[:])
-            edge_attributes.pop('geometry')
+            edge_attributes.pop('geometry') #remove geometry
+            edge_attributes.pop('length') # remove length
             mid_x = (geom[0][0] + geom[1][0])/2. # take middle coordinates
             mid_y = (geom[0][1] + geom[1][1])/2.
             geom.insert(1, (mid_x, mid_y)) # insert it into the geometry
@@ -222,13 +232,22 @@ def _solve_multiple_path(graph, node, other_node, verbose = False):
             # the same geometry as before
             graph.add_edge(node, p_num, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom[:2]))
+                           geometry = LineString(geom[:2]),
+                           length = _get_length(graph, node, p_num))
             graph.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
-                           geometry = LineString(geom[1:]))
+                           geometry = LineString(geom[1:]),
+                           length = _get_length(graph, other_node, p_num))
             straigth_key.remove(s)
             count += 1
     return graph
+
+# New function
+def _get_length(graph, f_node, s_node):
+    "Return the haversine length in meters between two nodes"
+    f_point = [graph.nodes[f_node]['y'], graph.nodes[f_node]['x']]
+    s_point = [graph.nodes[s_node]['y'], graph.nodes[s_node]['x']]
+    return round(haversine(f_point, s_point, unit = Unit.METERS), 3)
 
 # Modified function
 def get_undirected(G, attributes = None):
@@ -251,11 +270,10 @@ def get_undirected(G, attributes = None):
     # make a copy to not mutate original graph object caller passed in
     G = G.copy()
 
-    # set from/to nodes before making graph undirected
+    # don't set from/to nodes before making graph undirected anymore
+    # compared to original function, make it optional ?
+    # TODO: Need opinion
     for u, v, d in G.edges(data=True):
-        d["from"] = u
-        d["to"] = v
-
         # add geometry if missing, to compare parallel edges' geometries
         if "geometry" not in d:
             point_u = (G.nodes[u]["x"], G.nodes[u]["y"])
