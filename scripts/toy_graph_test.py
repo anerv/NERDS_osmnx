@@ -4,7 +4,7 @@ Toy MultiDiGraph to test out the various cases we could encounter in the
 process. Only thing not tested now is about directed edges.
 """
 
-from functions import multidigraph_to_graph, simplify_graph
+from simplification import multidigraph_to_graph, simplify_graph
 import networkx as nx
 import osmnx as ox
 import numpy as np
