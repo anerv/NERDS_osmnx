@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-
+New functions and original and modified functions from OSMnx in order to
+simplify the graph by removing interstitial nodes and by going from a
+multidigraph to a graph.
 """
 
+import itertools
 import numpy as np
 import geopandas as gpd
-import itertools
 from shapely.geometry import LineString
 from shapely.geometry import Point
 import networkx as nx
@@ -13,33 +15,33 @@ from haversine import haversine
 from haversine import Unit
 
 # New function
-def multidigraph_to_graph(graph, attributes = None,
+def multidigraph_to_graph(G, attributes = None,
                           verbose = False, debug = False):
     """
     Transform a MultiDiGraph into an undirected Graph by first removing the
     direction, making a MultiGraph, and then making it a Graph by making
-    sure that there is no multiple edges : for self-loop we create two nodes 
+    sure that there is no multiple edges : for self-loop we create two nodes
     within the geometry of the edge, for node with multiple edges we
     create one node within each geometry of the edge. We avoid to merge
     directed edges without the same arbitrary attributes.
 
     Parameters
     ----------
-    graph : networkx.classes.multidigraph.MultiDiGraph
+    G : networkx.classes.multidigraph.MultiDiGraph
         MultiDiGraph we want to transform.
     attributes : list or str or number, optional
         Key to the attributes we want to discriminate. The default is None.
     verbose : bool, optional
         If True, give the number of self-loop and multiple path found, and
-        the nodes with multiple straight edge between 
+        the nodes with multiple straight edge between
         (sign of bad OSM practice). The default is False.
     debug : bool, optional
-        If True, return a dictionary with every osmid and geometry of 
+        If True, return a dictionary with every osmid and geometry of
         self-loop and multiple path. The default is False.
 
     Returns
     -------
-    simple_graph : networkx.classes.graph.Graph
+    G : networkx.classes.graph.Graph
         Undirected graph made from the initial MultiDiGraph.
     debug_dict : dict
         Dictionary of every osmid and geometry of self-loop and multiple
@@ -53,33 +55,35 @@ def multidigraph_to_graph(graph, attributes = None,
         debug_dict = dict()
         debug_dict['self-loop'] = []
         debug_dict['multiple-path'] = []
-    ug = get_undirected(graph, attributes = attributes) # make it undirected
-    initial_node_list = list(ug.nodes()) # to avoid issue with changing 
+    G = get_undirected(G, attributes = attributes) # make it undirected
+    initial_node_list = list(G.nodes()) # to avoid issue with changing
     for node in initial_node_list: # number of node during the process
-        neighbors = np.transpose(list(ug.edges(node)))[1]
+        neighbors = np.transpose(list(G.edges(node)))[1]
         if node in neighbors: # then self_loop, need 2 artifical nodes
-            for k in list(graph.get_edge_data(node, node).keys()):
+            for k in list(G.get_edge_data(node, node).keys()):
                 if verbose is True:
                     self_loop_count +=1
                 if debug is True:
                     debug_dict['self-loop'].append([
-                        ug.edges[node, node, k]['osmid'],
-                        ug.edges[node, node, k]['geometry']])
-                ug = _solve_self_loop(ug, node, k)
-        for n in neighbors:
-            if ug.number_of_edges(node, n) > 1: #then multiple path, need 1
+                        G.edges[node, node, k]['osmid'],
+                        G.edges[node, node, k]['geometry']])
+                G = _solve_self_loop(G, node, k)
+        for neigh in neighbors:
+            if G.number_of_edges(node, neigh) > 1: #then multiple path, need 1
                 if verbose is True:
-                    if ug.number_of_edges(node, n) in multiple_path_count:
-                        multiple_path_count[ug.number_of_edges(node, n)] += 1
+                    if G.number_of_edges(node, neigh) in multiple_path_count:
+                        multiple_path_count[
+                            G.number_of_edges(node, neigh)] += 1
                     else:
-                        multiple_path_count[ug.number_of_edges(node, n)] = 1
+                        multiple_path_count[
+                            G.number_of_edges(node, neigh)] = 1
                 if debug is True:
-                    for k in list(graph.get_edge_data(node, n).keys()):
+                    for k in list(G.get_edge_data(node, neigh).keys()):
                         debug_dict['multiple-path'].append([
-                            ug.edges[node, n, k]['osmid'],
-                            ug.edges[node, n, k]['geometry']])
-                ug = _solve_multiple_path(ug, node, n, verbose = verbose)
-    simple_graph = nx.Graph(ug) #if no multiple edges, simply change the type
+                            G.edges[node, neigh, k]['osmid'],
+                            G.edges[node, neigh, k]['geometry']])
+                G = _solve_multiple_path(G, node, neigh, verbose = verbose)
+    G = nx.Graph(G) #if no multiple edges, simply change the type
     if verbose is True:
         print("""
               Number of self-loop found : {} \n
@@ -87,19 +91,18 @@ def multidigraph_to_graph(graph, attributes = None,
               """.format(self_loop_count, multiple_path_count)
               )
     if debug is True:
-        return simple_graph, debug_dict
-    else:
-        return simple_graph
-     
-# New function        
-def _solve_self_loop(graph, node, key):
+        return G, debug_dict
+    return G
+
+# New function
+def _solve_self_loop(G, node, key):
     """
     Transform a loop where a node is connected to itself by adding two nodes
     in the geometry of the loop, in order to make it simple (no multiple edges)
 
     Parameters
     ----------
-    graph : networkx.MultiGraph
+    G : networkx.MultiGraph
         MultiGraph we want to transform.
     node : int
         Node's ID where there is a self-loop.
@@ -108,145 +111,145 @@ def _solve_self_loop(graph, node, key):
 
     Returns
     -------
-    graph : networkx.MultiGraph
+    G : networkx.MultiGraph
         MultiGraph with the self-loop resolved.
 
     """
-    edge_attributes = dict(graph.edges[node, node, key]) # take attributes
+    edge_attributes = dict(G.edges[node, node, key]) # take attributes
     geom = list(edge_attributes['geometry'].coords[:])
     edge_attributes.pop('geometry') # remove geometry
     edge_attributes.pop('length') # remove length
-    graph.remove_edge(node, node, key)
+    G.remove_edge(node, node, key)
     f_num = node + 1 # find unique ID not already in the graph
-    while f_num in graph.nodes():
+    while f_num in G.nodes():
         f_num += 1
     s_num = f_num + 1
-    while s_num in graph.nodes():
+    while s_num in G.nodes():
         s_num += 1
     # TODO : add street_count to nodes
     # Add nodes as the first and last point in the LineString geometry
     # if we don't count the original node of the self-loop
-    graph.add_node(f_num, 
+    G.add_node(f_num,
                    x = geom[1][0],
                    y = geom[1][1])
-    graph.add_node(s_num,
+    G.add_node(s_num,
                    x = geom[-2][0],
                    y = geom[-2][1])
     # Connect them with edges keeping the attributes and having in total
     # the same geometry as before
-    graph.add_edge(node, f_num, key = 0, 
-                   **edge_attributes,    
+    G.add_edge(node, f_num, key = 0,
+                   **edge_attributes,
                    geometry = LineString(geom[:2]),
-                   length = _get_length(graph, node, f_num))
-    graph.add_edge(node, s_num, key = 0, 
+                   length = _get_length(G, node, f_num))
+    G.add_edge(node, s_num, key = 0,
                    **edge_attributes,
                    geometry = LineString(geom[-2:]),
-                   length = _get_length(graph, node, s_num))
-    graph.add_edge(f_num, s_num, key = 0,
+                   length = _get_length(G, node, s_num))
+    G.add_edge(f_num, s_num, key = 0,
                    **edge_attributes,
                    geometry = LineString(geom[1:-1]),
-                   length = _get_length(graph, s_num, f_num))
-    return graph
+                   length = _get_length(G, s_num, f_num))
+    return G
 
 # New function
-def _solve_multiple_path(graph, node, other_node, verbose = False):
+def _solve_multiple_path(G, node, other_node, verbose = False):
     """
     Transform multiple paths between nodes by adding artifical nodes on every
     path but one, in order to make it simple (no multiple edges)
 
     Parameters
     ----------
-    graph : networkx.classes.multidigraph.MultiDiGraph
+    G : networkx.classes.multidigraph.MultiDiGraph
         MultiDiGraph we want to transform.
     node : int
         First node's ID.
     other_node : int
         Second node's ID.
     verbose : bool, optional
-        If True, give  the nodes with multiple straight edge between 
+        If True, give  the nodes with multiple straight edge between
         (sign of bad OSM practice) and their keys. The default is False.
 
     Returns
     -------
-    graph : networkx.classes.multidigraph.MultiDiGraph
+    G : networkx.classes.multidigraph.MultiDiGraph
         MultiDiGraph with the multiple path issue solved.
 
     """
     # for every path but one, to add as little number of node as needed
     count = 0
     straigth_key = []
-    for i in list(graph.get_edge_data(node, other_node).keys()):
-        if count == graph.number_of_edges(node, other_node) - 1:
+    for i in list(G.get_edge_data(node, other_node).keys()):
+        if count == G.number_of_edges(node, other_node) - 1:
             pass
         if len(list(
-                graph.edges[node, other_node, i]['geometry'].coords[:]
+                G.edges[node, other_node, i]['geometry'].coords[:]
                 )) > 2:
             # take attributes
-            edge_attributes = dict(graph.edges[node, other_node, i])
-            geom = list(edge_attributes['geometry'].coords[:]) 
+            edge_attributes = dict(G.edges[node, other_node, i])
+            geom = list(edge_attributes['geometry'].coords[:])
             edge_attributes.pop('geometry') #remove geometry
             edge_attributes.pop('length') # remove length
-            graph.remove_edge(node, other_node, i)
+            G.remove_edge(node, other_node, i)
             p_num = node + 1 # find ID that is not already in the graph
-            while p_num in graph.nodes():
+            while p_num in G.nodes():
                 p_num += 1
-            graph.add_node(p_num, # add node as the first point of the geometry
+            G.add_node(p_num, # add node as the first point of the geometry
                            x = geom[1][0],
                            y = geom[1][1])
             # Connect it with edges keeping the attributes and having in total
             # the same geometry as before
-            graph.add_edge(node, p_num, key = 0,
+            G.add_edge(node, p_num, key = 0,
                            **edge_attributes,
                            geometry = LineString(geom[:2]),
-                           length = _get_length(graph, node, p_num))
-            graph.add_edge(p_num, other_node, key = 0,
+                           length = _get_length(G, node, p_num))
+            G.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
                            geometry = LineString(geom[1:]),
-                           length = _get_length(graph, other_node, p_num))
+                           length = _get_length(G, other_node, p_num))
             count += 1
         else: #if straight line
             straigth_key.append(i)
-    if count < graph.number_of_edges(node, other_node) - 1:
+    if count < G.number_of_edges(node, other_node) - 1:
         if verbose is True:
             print("""
                   Multiple straight path between node {} and {} at the keys 
                   {}
                   """.format(node, other_node, straigth_key))
-        while count < graph.number_of_edges(node, other_node) - 1:
-            s = straigth_key[0]
-            edge_attributes = dict(graph.edges[node, other_node, s])
+        while count < G.number_of_edges(node, other_node) - 1:
+            f_key = straigth_key[0]
+            edge_attributes = dict(G.edges[node, other_node, f_key])
             geom = list(edge_attributes['geometry'].coords[:])
             edge_attributes.pop('geometry') #remove geometry
             edge_attributes.pop('length') # remove length
             mid_x = (geom[0][0] + geom[1][0])/2. # take middle coordinates
             mid_y = (geom[0][1] + geom[1][1])/2.
             geom.insert(1, (mid_x, mid_y)) # insert it into the geometry
-            graph.remove_edge(node, other_node, s)
+            G.remove_edge(node, other_node, f_key)
             p_num = node + 1# find ID that is not already in the graph
-            while p_num in graph.nodes():
+            while p_num in G.nodes():
                 p_num += 1
-            graph.add_node(p_num, # add node as the first point of the geometry
+            G.add_node(p_num, # add node as the first point of the geometry
                            x = geom[1][0],
                            y = geom[1][1])
             # Connect it with edges keeping the attributes and having in total
             # the same geometry as before
-            graph.add_edge(node, p_num, key = 0,
+            G.add_edge(node, p_num, key = 0,
                            **edge_attributes,
                            geometry = LineString(geom[:2]),
-                           length = _get_length(graph, node, p_num))
-            graph.add_edge(p_num, other_node, key = 0,
+                           length = _get_length(G, node, p_num))
+            G.add_edge(p_num, other_node, key = 0,
                            **edge_attributes,
                            geometry = LineString(geom[1:]),
-                           length = _get_length(graph, other_node, p_num))
-            straigth_key.remove(s)
+                           length = _get_length(G, other_node, p_num))
+            straigth_key.remove(f_key)
             count += 1
-    return graph
+    return G
 
 # New function
-def _get_length(graph, f_node, s_node):
-    "Return the haversine length in meters between two nodes"
-    f_point = [graph.nodes[f_node]['y'], graph.nodes[f_node]['x']]
-    s_point = [graph.nodes[s_node]['y'], graph.nodes[s_node]['x']]
+def _get_length(G, f_node, s_node):
+    "Return the haversine length in meters between two nodes like in OSM."
+    f_point = [G.nodes[f_node]['y'], G.nodes[f_node]['x']] #[lat, lon]
+    s_point = [G.nodes[s_node]['y'], G.nodes[s_node]['x']]
     return round(haversine(f_point, s_point, unit = Unit.METERS), 3)
 
 # Modified function
@@ -457,7 +460,7 @@ def graph_to_gdfs(G, nodes=True, edges=True, node_geometry=True,
         return gdf_edges
     else:  # pragma: no cover
         raise ValueError("you must request nodes or edges or both")
-            
+
 # Modified function
 def _is_duplicate_edge(data1, data2, attributes = None):
     """
@@ -485,55 +488,30 @@ def _is_duplicate_edge(data1, data2, attributes = None):
     if osmid1 == osmid2:
 
         # if both edges have geometry attributes and they match each other
-        if attributes is None:
-            if ("geometry" in data1) and ("geometry" in data2):
-                if _is_same_geometry(data1["geometry"], data2["geometry"]):
-                    is_dupe = True
-    
-            # if neither edge has a geometry attribute
-            elif ("geometry" not in data1) and ("geometry" not in data2):
+        if ("geometry" in data1) and ("geometry" in data2):
+            if _is_same_geometry(data1["geometry"], data2["geometry"]):
                 is_dupe = True
-    
-            # if one edge has geometry attribute but the other doesn't: 
-            # not dupes
-            else:
-                pass
-        elif type(attributes) is list:
-            # TODO: Dumb way to do it, find a better one
-            count = 0
-            for attr in attributes:
-                if data1[attr] == data2[attr]:
-                    count += 1
-                else:
-                    pass
-            if count == len(attributes):
-                if ("geometry" in data1) and ("geometry" in data2):
-                    if _is_same_geometry(data1["geometry"], data2["geometry"]):
-                        is_dupe = True
-        
-                # if neither edge has a geometry attribute
-                elif ("geometry" not in data1) and ("geometry" not in data2):
-                    is_dupe = True
-        
-                # if one edge has geometry attribute but the other doesn't: 
-                # not dupes
-                else:
-                    pass
-            else:
-                pass
+
+        # if neither edge has a geometry attribute
+        elif ("geometry" not in data1) and ("geometry" not in data2):
+            is_dupe = True
+
+        # if one edge has geometry attribute but the other doesn't:
+        # not dupes
         else:
-            if data1[attributes] == data2[attributes]:
-                if ("geometry" in data1) and ("geometry" in data2):
-                    if _is_same_geometry(data1["geometry"], data2["geometry"]):
-                        is_dupe = True
-        
-                # if neither edge has a geometry attribute
-                elif ("geometry" not in data1) and ("geometry" not in data2):
-                    is_dupe = True
-        
-                # if one edge has geometry attribute but the other doesn't: not dupes
+            pass
+
+        if attributes is None:
+            pass
+        elif isinstance(attributes, list):
+            for attr in attributes:
+                if data1[attr] != data2[attr]:
+                    is_dupe = False
                 else:
                     pass
+        else:
+            if data1[attributes] != data2[attributes]:
+                is_dupe = False
 
     return is_dupe
 
@@ -634,9 +612,9 @@ def simplify_graph(G, attributes = None, strict=True, remove_rings=True):
             [Point((G.nodes[node]["x"], G.nodes[node]["y"])) for node in path]
         )
         edge_attributes["length"] = sum(edge_attributes["length"])
-        
+
         if not attributes is None:
-            if type(attributes) is list:
+            if isinstance(attributes, list):
                 for attr in attributes:
                     edge_attributes[attr] = edge_attributes[attr][0]
             else:
@@ -676,7 +654,7 @@ def _get_paths_to_simplify(G, attributes = None, strict=True):
     """
     Generate all the paths to be simplified between endpoint nodes.
 
-    The path is ordered from the first endpoint, through the interstitial 
+    The path is ordered from the first endpoint, through the interstitial
     nodes, to the second endpoint.
 
     Parameters
@@ -686,7 +664,7 @@ def _get_paths_to_simplify(G, attributes = None, strict=True):
     attributes : list
         key of the attributes we should discriminate
     strict : bool
-        if False, allow nodes to be end points even if they fail all other 
+        if False, allow nodes to be end points even if they fail all other
         rules but have edges with different OSM IDs
 
     Yields
@@ -694,7 +672,7 @@ def _get_paths_to_simplify(G, attributes = None, strict=True):
     path_to_simplify : list
     """
     # first identify all the nodes that are endpoints
-    endpoints = set([n for n in G.nodes if _is_endpoint(G, n, 
+    endpoints = set([n for n in G.nodes if _is_endpoint(G, n,
                                                         attributes = attributes,
                                                         strict=strict)])
 
@@ -722,7 +700,7 @@ def _is_endpoint(G, node, attributes = None, strict=True):
     4) or, if strict mode is false, if its edges have different OSM IDs.
     5) or, if attributes is not None, we take either every value of the
     given list or the given value and test whether every edges connected to
-    the node have the same attribute. 
+    the node have the same attribute.
 
     Parameters
     ----------
@@ -733,7 +711,7 @@ def _is_endpoint(G, node, attributes = None, strict=True):
     attributes : list
         key of the attributes we should discriminate
     strict : bool
-        if False, allow nodes to be end points even if they fail all other 
+        if False, allow nodes to be end points even if they fail all other
         rules but have edges with different OSM IDs
 
     Returns
@@ -759,9 +737,9 @@ def _is_endpoint(G, node, attributes = None, strict=True):
     elif not (n == 2 and (d == 2 or d == 4)):
         # else, if it does NOT have 2 neighbors AND either 2 or 4 directed
         # edges, it is an endpoint. either it has 1 or 3+ neighbors, in which
-        # case it is a dead-end or an intersection of multiple streets or it 
-        # has 2 neighbors but 3 degree (indicating a change from oneway to 
-        # twoway) or more than 4 degree (indicating a parallel edge) and thus 
+        # case it is a dead-end or an intersection of multiple streets or it
+        # has 2 neighbors but 3 degree (indicating a change from oneway to
+        # twoway) or more than 4 degree (indicating a parallel edge) and thus
         # is an endpoint
         return True
 
@@ -790,7 +768,7 @@ def _is_endpoint(G, node, attributes = None, strict=True):
         if attributes is None:
             return False
         else:
-            if type(attributes) is list:
+            if isinstance(attributes, list):
                 for attr in attributes:
                     for pre in list(G.predecessors(node)):
                         for suc in list(G.successors(node)):
@@ -799,7 +777,7 @@ def _is_endpoint(G, node, attributes = None, strict=True):
                                 pass
                             else:
                                 return True
-            else:    
+            else:
                 for pre in list(G.predecessors(node)):
                     for suc in list(G.successors(node)):
                         if (G.edges[pre, node, 0][attributes]) == (
@@ -839,7 +817,7 @@ def _build_path(G, endpoint, endpoint_successor, endpoints):
     # for each successor of the endpoint's successor
     for successor in G.successors(endpoint_successor):
         if successor not in path:
-            # if this successor is already in the path, ignore it, otherwise 
+            # if this successor is already in the path, ignore it, otherwise
             # add it to the path
             path.append(successor)
             while successor not in endpoints:
