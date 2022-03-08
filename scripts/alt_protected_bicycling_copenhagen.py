@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Make a simplified graph of Copenhagen (and Frederiksberg) by removing
-every non-necessary interstitial nodes and discriminating roads with
-protected bicycling infrastructure (or safe place) and others, based on 
-the criterion of bikewgrowth.
+Alternative simplified graph of Copenhagen (and Frederiksberg).
+See protected_bicycling_copenhagen_simplified.py for more explanation.
 """
 
 import simplification
@@ -13,8 +11,9 @@ import shapely
 
 if __name__ == "__main__":
     # First add every necessary tag on the tag_list so we can filter with them
-    tag_list = ["cycleway", "bicycle", "cycleway:right",
-                "cycleway:left", "cyclestreet", "bicycle_road"]
+    tag_list = ["sidewalk:left:bicycle", "sidewalk:right:bicycle",
+                "cycleway:left", "cycleway:right", "cycleway", "cycleway:both",
+                "cyclestreet", "bicycle", "bicycle_road"]
     for tag_name in tag_list:
         if tag_name not in ox.settings.useful_tags_way:
             ox.settings.useful_tags_way += [tag_name]
@@ -26,26 +25,27 @@ if __name__ == "__main__":
                                           fre['geometry'][0]])
     # Get the non-simplified graph with the extended list of attributes
     G = ox.graph_from_polygon(polygon, simplify = False)
-    G_sim = simplification.simplify_graph(G)
-    G_com = ox.simplify_graph(G)
-    
-    # Use to get at look a edges attributes we get with this query
-    # ignore_attr = ['length', 'width', 'osmid', 'ref', 'name']
-    # edge_attr = utils.get_every_edge_attributes(G,
-    #                                             ignore_key_list = ignore_attr)
-    
     # Make dictionary of protected bicycle infrastructure
     protected_dict = dict()
-    protected_dict["cycleway"] = "track"
-    protected_dict["cycleway:right"] = "track"
-    protected_dict["cycleway:left"] = "track"
+    protected_dict["sidewalk:left:bicycle"] = "yes"
+    protected_dict["sidewalk:left:right"] = "yes"
+    protected_dict["cycleway:left"] = ["shared_lane", "shared_busway",
+                                       "track"]
+    protected_dict["cycleway:right"] = ["shared_lane", "shared_busway",
+                                        "track"]
+    protected_dict["cycleway:both"] = "lane"
+    protected_dict["cycleway"] = ["shared_lane", "shared_busway",
+                                  "opposite_lane", "opposite"]
+    protected_dict["bicycle"] = ["designated", "yes", "official",
+                                 "use_sidepath"]
+    protected_dict["highway"] = ["cycleway", "bridleway"]
+    protected_dict["cyclestreet"] = "yes"
     protected_dict["bicycle_road"] = "yes"
-    protected_dict["bicycle"] = "designated"
-    protected_dict["highway"] = "cycleway"
-    
+
+    H = utils.add_edge_attribute(G, protected_dict, 'protected_bicycling')
     # Create new attribute to simplify it
     H = utils.add_edge_attribute(G, protected_dict, 'protected_bicycling')
-    
+
     H_sim = simplification.simplify_graph(H,
                                           attributes = 'protected_bicycling')
     H_fin = simplification.multidigraph_to_graph(
@@ -62,17 +62,12 @@ if __name__ == "__main__":
     ratio = 1 - (len(list(H_fin.edges))
                  - count_protected) / len(list(H_fin.edges))
     print("{}% of protected edges".format(round((ratio * 100), 2)))
-
     # Basic statistics
     print("""
           {} nodes and {} edges in original graph G \n
-          {} nodes and {} edges in traditional simplified graph G_sim \n
-          {} nodes and {} edges in OSMnx simplified graph G_com \n
           {} nodes and {} edges in multilayer simplified graph H_sim \n
           {} nodes and {} edges in final graph H_fin
           """.format(len(list(G.nodes())), len(list(G.edges())),
-          len(list(G_sim.nodes())), len(list(G_sim.edges())),
-          len(list(G_com.nodes())), len(list(G_com.edges())),
           len(list(H_sim.nodes())), len(list(H_sim.edges())),
           len(list(H_fin.nodes())), len(list(H_fin.edges()))))
 
@@ -83,6 +78,3 @@ if __name__ == "__main__":
     ox.plot_graph(H_fin, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 10, edge_color = ec, 
                    edge_linewidth = 1.5) # red is protected, blue unprotected
-    
-    
-    
