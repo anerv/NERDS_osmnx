@@ -178,10 +178,12 @@ def _solve_multiple_path(G, node, other_node, verbose = False):
     # for every path but one, to add as little number of node as needed
     count = 0
     straigth_key = []
-    for i in list(G.get_edge_data(node, other_node).keys()):
-        if count == G.number_of_edges(node, other_node) - 1:
-            pass
-        if len(list(
+    initial_n_edges = G.number_of_edges(node, other_node)
+    initial_key_list = list(G.get_edge_data(node, other_node).keys())
+    for i in initial_key_list:
+        if count == initial_n_edges - 1:
+            break
+        elif len(list(
                 G.edges[node, other_node, i]['geometry'].coords[:]
                 )) > 2:
             # take attributes

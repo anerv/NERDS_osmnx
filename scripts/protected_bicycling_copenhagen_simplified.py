@@ -10,6 +10,7 @@ import simplification
 import utils
 import osmnx as ox
 import shapely
+import networkx as nx
 
 if __name__ == "__main__":
     # First add every necessary tag on the tag_list so we can filter with them
@@ -51,7 +52,6 @@ if __name__ == "__main__":
     H_fin = simplification.multidigraph_to_graph(
         H_sim, attributes = 'protected_bicycling', verbose = True
         )
-    
     # Count the number of protected edges and change bool into binary int
     count_protected = 0
     for edge in H_fin.edges:
@@ -64,13 +64,26 @@ if __name__ == "__main__":
                  - count_protected) / len(list(H_fin.edges))
     print("{}% of protected edges".format(round((ratio * 100), 2)))
 
+    # Basic statistics
+    print("""
+          {} nodes and {} edges in original graph G \n
+          {} nodes and {} edges in traditional simplified graph G_sim \n
+          {} nodes and {} edges in OSMnx simplified graph G_com \n
+          {} nodes and {} edges in multilayer simplified graph H_sim \n
+          {} nodes and {} edges in final graph H_fin
+          """.format(len(list(G.nodes())), len(list(G.edges())),
+          len(list(G_sim.nodes())), len(list(G_sim.edges())),
+          len(list(G_com.nodes())), len(list(G_com.edges())),
+          len(list(H_sim.nodes())), len(list(H_sim.edges())),
+          len(list(H_fin.nodes())), len(list(H_fin.edges()))))
+
     # Use binary int for visualization
     ec = ox.plot.get_edge_colors_by_attr(H_fin,
                                          'protected_bicycling',
                                          cmap='bwr')
     ox.plot_graph(H_fin, figsize = (12, 8), bgcolor = 'w', 
-                  node_color = 'black', node_size = 30, edge_color = ec, 
-                   edge_linewidth = 2)
+                  node_color = 'black', node_size = 10, edge_color = ec, 
+                   edge_linewidth = 1.5) # red is protected, blue unprotected
     
     
     
