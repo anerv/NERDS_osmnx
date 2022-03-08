@@ -3,7 +3,7 @@
 Useful functions to manipulate edge attributes of a networkx graph.
 """
 
-def get_every_edge_attributes(G, ignore_key_list = []):
+def get_every_edge_attributes(G, ignore_key = []):
     """
     Get all the possible value for all attributes for edges of the graph
     except the ones on a given ignore list.
@@ -14,7 +14,7 @@ def get_every_edge_attributes(G, ignore_key_list = []):
     G : networkx Graph/DiGraph/MultiGraph/MultiDiGraph/...
         Graph where we want to simplify an attribute.
 
-    ignore_key_list : list, optional
+    ignore_key : list or singleton, optional
         Key we want to ignore. The default is [].
 
     Returns
@@ -27,15 +27,26 @@ def get_every_edge_attributes(G, ignore_key_list = []):
     attr_dict = dict()
     for edge in G.edges:
         for attr in list(G.edges[edge].keys()):
-            if attr in ignore_key_list:
-                pass
-            elif attr in attr_dict:
-                if G.edges[edge][attr] in attr_dict[attr]:
+            if isinstance(ignore_key, list):
+                if attr in ignore_key:
                     pass
+                elif attr in attr_dict:
+                    if G.edges[edge][attr] in attr_dict[attr]:
+                        pass
+                    else:
+                        attr_dict[attr].append(G.edges[edge][attr])
                 else:
-                    attr_dict[attr].append(G.edges[edge][attr])
+                    attr_dict[attr] = [G.edges[edge][attr]]
             else:
-                attr_dict[attr] = [G.edges[edge][attr]]
+                if attr is ignore_key:
+                    pass
+                elif attr in attr_dict:
+                    if G.edges[edge][attr] in attr_dict[attr]:
+                        pass
+                    else:
+                        attr_dict[attr].append(G.edges[edge][attr])
+                else:
+                    attr_dict[attr] = [G.edges[edge][attr]]
     return attr_dict
 
 def get_specific_edge_attributes(G, take_key_list):
@@ -47,7 +58,7 @@ def get_specific_edge_attributes(G, take_key_list):
     ----------
     G : networkx Graph/DiGraph/MultiGraph/MultiDiGraph/...
         Graph where we want to simplify an attribute.
-    take_key_list : list
+    take_key_list : list of str or str
         List of the key we want to get.
 
     Returns
@@ -57,15 +68,25 @@ def get_specific_edge_attributes(G, take_key_list):
 
     """
     attr_dict = dict()
-    for key in take_key_list:
-        attr_dict[key] = []
-    for edge in G.edges:
-        for attr in list(G.edges[edge].keys()):
-            if attr in take_key_list:
-                if G.edges[edge][attr] in attr_dict[attr]:
+    if isinstance(take_key_list, list):
+        for key in take_key_list:
+            attr_dict[key] = []
+        for edge in G.edges:
+            for attr in list(G.edges[edge].keys()):
+                if attr in take_key_list:
+                    if G.edges[edge][attr] in attr_dict[attr]:
+                        pass
+                    else:
+                        attr_dict[attr].append(G.edges[edge][attr])
+    else:
+        attr_dict[take_key_list] = []
+        for edge in G.edges:
+            if take_key_list in list(G.edges[edge].keys()):
+                if G.edges[edge][take_key_list] in attr_dict[take_key_list]:
                     pass
                 else:
-                    attr_dict[attr].append(G.edges[edge][attr])
+                    attr_dict[take_key_list].append(
+                        G.edges[edge][take_key_list])
     return attr_dict
 
 def simplify_edge_attribute_name(G, key, name_list, simple_name):
@@ -91,8 +112,9 @@ def simplify_edge_attribute_name(G, key, name_list, simple_name):
     """
     G = G.copy()
     for edge in G.edges:
-        if G.edges[edge][key] in name_list:
-            G.edges[edge][key] = simple_name
+        if key in list(G.edges[edge].keys()):
+            if G.edges[edge][key] in name_list:
+                G.edges[edge][key] = simple_name
     return G
 
 def add_edge_attribute(G, attr_dict, name, bool_response = True):
@@ -134,8 +156,10 @@ def add_edge_attribute(G, attr_dict, name, bool_response = True):
                     name, edge)
                 )
         for key in list(attr_dict.keys()):
-            if G.edges[edge][key] in attr_dict[key]:
-                G.edges[edge][name] = bool_response
-            else:
-                G.edges[edge][name] = not bool_response
+            if key in list(G.edges[edge].keys()):
+                if G.edges[edge][key] in attr_dict[key]:
+                    G.edges[edge][name] = bool_response
+                    break # otherwise next key can replace the value
+                else:
+                    G.edges[edge][name] = not bool_response
     return G
