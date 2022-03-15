@@ -17,3 +17,11 @@ After such simplification where we remove unnecessary (because we don't loose in
 This step helps us to manipulate the network afterwards, for instance to use metrics that works only on graph such as betweenness centrality.
 
 ![simplification_image](https://user-images.githubusercontent.com/61236142/155726851-92bccbc4-10fb-4fd3-9fdc-c0673cd284fd.jpg)
+
+## To add as a local package
+
+Based on the [The Good Research Code Handbook](https://goodresearch.dev/setup.html#pip-install-your-package), you should:
+* Put yourself on your virtual environment and on the folder, such as /NERDS_osmnx
+* Run pip install -e .
+
+". indicates that we’re installing the package in the current directory. -e indicates that the package should be editable. That means that if you change the files inside the [source] folder, you don’t need to re-install the package for your changes to be picked up by Python."
