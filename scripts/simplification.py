@@ -8,6 +8,7 @@ multidigraph to a graph.
 import itertools
 import numpy as np
 import geopandas as gpd
+import shapely
 from shapely.geometry import LineString
 from shapely.geometry import Point
 import networkx as nx
@@ -859,6 +860,9 @@ def _build_path(G, endpoint, endpoint_successor, endpoints):
 # Modified function
 def alt_simplify_graph(G, attributes = None, strict=True, remove_rings=True):
     """
+    Same as simplify_graph, but geometry is not taken into account in the same
+    way : here it can take into account places where a geometry attribute
+    already exist for edges.
     Simplify a graph's topology by removing interstitial nodes.
 
     Simplifies graph topology by removing all nodes that are not intersections
@@ -902,6 +906,7 @@ def alt_simplify_graph(G, attributes = None, strict=True, remove_rings=True):
         # add the interstitial edges we're removing to a list so we can retain
         # their spatial geometry
         edge_attributes = dict()
+        geometry_batch = []
         for u, v in zip(path[:-1], path[1:]):
 
             # there should rarely be multiple edges between interstitial nodes
@@ -911,8 +916,17 @@ def alt_simplify_graph(G, attributes = None, strict=True, remove_rings=True):
             # get edge between these nodes: if multiple edges exist between
             # them (see above), we retain only one in the simplified graph
             edge = G.edges[u, v, 0]
+            if 'geometry' in edge.keys(): # if geometry, add the LineString
+                 geometry_batch.append(edge['geometry'])
+            else:
+                 geometry_batch.append(LineString[(G.nodes[u]["x"], # else
+                                        G.nodes[u]["y"]), # create with nodes
+                                       (G.nodes[v]["x"],
+                                        G.nodes[v]["y"])]) 
             for key in edge:
-                if key in edge_attributes:
+                if key == 'geometry':
+                    pass
+                elif key in edge_attributes:
                     # if this key already exists in the dict, append it to the
                     # value list
                     edge_attributes[key].append(edge[key])
@@ -921,9 +935,8 @@ def alt_simplify_graph(G, attributes = None, strict=True, remove_rings=True):
                     # containing the one value
                     edge_attributes[key] = [edge[key]]
         # construct the geometry and sum the lengths of the segments
-        edge_attributes["geometry"] = LineString(
-            [Point((G.nodes[node]["x"], G.nodes[node]["y"])) for node in path]
-        )
+        multi_line = shapely.geometry.MultiLineString(geometry_batch)
+        edge_attributes["geometry"] = shapely.ops.linemerge(multi_line)
         edge_attributes["length"] = sum(edge_attributes["length"])
 
         if not attributes is None:

@@ -2,7 +2,6 @@
 
 import numpy as np
 import networkx as nx
-import shapely
 import osmnx as ox
 import nerds_osmnx.simplification
 
@@ -19,8 +18,20 @@ def average_node_to_edge(G, attr_name):
     return G
 
 if __name__ == "__main__":
-    G = ox.graph_from_bbox(43.5337, 43.5233, 5.4577, 5.4376,)
+    G = ox.graph_from_bbox(43.5337, 43.5233, 5.4577, 5.4376,
+                           simplify = False)
+    ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'r', node_size = 30, edge_color = 'black', 
+                  edge_linewidth = 3)
+    G = nerds_osmnx.simplification.simplify_graph(G)
+    ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'r', node_size = 30, edge_color = 'black', 
+                  edge_linewidth = 3)
     G = nerds_osmnx.simplification.multidigraph_to_graph(G)
+    G = nx.MultiGraph(G)
+    ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'r', node_size = 30, edge_color = 'black', 
+                  edge_linewidth = 3)
 
     # ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
     #               node_color = 'r', node_size = 30, edge_color = 'black', 
@@ -69,9 +80,11 @@ if __name__ == "__main__":
     G = average_node_to_edge(G, 'betweenness')
     betw_ec = ox.plot.get_edge_colors_by_attr(G, "betweenness")
     ebet_ec = ox.plot.get_edge_colors_by_attr(G, "edge_betweenness")
-    ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
-                  node_color = 'black', node_size = 30, edge_color = betw_ec, 
-                  edge_linewidth = 3)
+    #osmx.plot_graph only take multigraph because it retrieves keys
+    G = nx.MultiGraph(G) 
+    # ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
+    #               node_color = 'black', node_size = 30, edge_color = betw_ec, 
+    #               edge_linewidth = 3)
     ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 30, edge_color = ebet_ec, 
                   edge_linewidth = 3)
