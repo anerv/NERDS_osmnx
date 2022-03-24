@@ -858,7 +858,8 @@ def _build_path(G, endpoint, endpoint_successor, endpoints):
 
 
 # Modified function
-def alt_simplify_graph(G, attributes = None, strict=True, remove_rings=True):
+def momepy_simplify_graph(G, attributes = None, strict=True,
+                          remove_rings=True):
     """
     Same as simplify_graph, but geometry is not taken into account in the same
     way : here it can take into account places where a geometry attribute
@@ -916,13 +917,7 @@ def alt_simplify_graph(G, attributes = None, strict=True, remove_rings=True):
             # get edge between these nodes: if multiple edges exist between
             # them (see above), we retain only one in the simplified graph
             edge = G.edges[u, v, 0]
-            if 'geometry' in edge.keys(): # if geometry, add the LineString
-                 geometry_batch.append(edge['geometry'])
-            else:
-                 geometry_batch.append(LineString[(G.nodes[u]["x"], # else
-                                        G.nodes[u]["y"]), # create with nodes
-                                       (G.nodes[v]["x"],
-                                        G.nodes[v]["y"])]) 
+            geometry_batch.append(edge['geometry'])
             for key in edge:
                 if key == 'geometry':
                     pass
