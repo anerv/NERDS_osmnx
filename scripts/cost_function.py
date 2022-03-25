@@ -28,10 +28,6 @@ if __name__ == "__main__":
                   node_color = 'r', node_size = 30, edge_color = 'black', 
                   edge_linewidth = 3)
     G = nerds_osmnx.simplification.multidigraph_to_graph(G)
-    G = nx.MultiGraph(G)
-    ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
-                  node_color = 'r', node_size = 30, edge_color = 'black', 
-                  edge_linewidth = 3)
 
     # ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
     #               node_color = 'r', node_size = 30, edge_color = 'black', 

@@ -4,7 +4,7 @@ Toy MultiDiGraph to test out the various cases we could encounter in the
 process. Only thing not tested now is about directed edges.
 """
 
-from simplification import multidigraph_to_graph, simplify_graph
+from nerds_osmnx.simplification import multidigraph_to_graph, simplify_graph
 import networkx as nx
 import osmnx as ox
 import numpy as np
@@ -70,6 +70,7 @@ if __name__ == "__main__":
     G_graph, debug_dict = multidigraph_to_graph(G_simple,
                                                 verbose = True, debug = True)
     ec_g = ox.plot.get_edge_colors_by_attr(G_graph, 'color', cmap='Set1')
+    G_graph = nx.MultiGraph(G_graph)
     ox.plot_graph(G_graph, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 30, edge_color = ec_g, 
                   edge_linewidth = 3)

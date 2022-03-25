@@ -6,10 +6,11 @@ protected bicycling infrastructure (or safe place) and others, based on
 the criterion of bikewgrowth.
 """
 
-import simplification
+import nerds_osmnx.simplification as simplification
 import utils
 import osmnx as ox
 import shapely
+import networkx as nx
 
 if __name__ == "__main__":
     # First add every necessary tag on the tag_list so we can filter with them
@@ -80,6 +81,7 @@ if __name__ == "__main__":
     ec = ox.plot.get_edge_colors_by_attr(H_fin,
                                          'protected_bicycling',
                                          cmap='bwr')
+    H_fin = nx.MultiGraph(H_fin)
     ox.plot_graph(H_fin, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 10, edge_color = ec, 
                    edge_linewidth = 1.5) # red is protected, blue unprotected
