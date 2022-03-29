@@ -23,17 +23,15 @@ if __name__ == "__main__":
     # Get the polygon of Copenhagen and Frederiksberg
     cop = ox.geocode_to_gdf("Copenhagen Municipality")
     fre = ox.geocode_to_gdf("Frederiksberg Municipality")
-    polygon = shapely.ops.unary_union([cop['geometry'][0],
-                                          fre['geometry'][0]])
+    polygon = shapely.ops.unary_union([cop['geometry'][0], fre['geometry'][0]])
     # Get the non-simplified graph with the extended list of attributes
-    G = ox.graph_from_polygon(polygon, simplify = False)
+    G = ox.graph_from_polygon(polygon, simplify=False)
     G_sim = simplification.simplify_graph(G)
     G_com = ox.simplify_graph(G)
     
     # Use to get at look a edges attributes we get with this query
     # ignore_attr = ['length', 'width', 'osmid', 'ref', 'name']
-    # edge_attr = utils.get_every_edge_attributes(G,
-    #                                             ignore_key_list = ignore_attr)
+    # edge_attr = utils.get_every_edge_attributes(G, ignore_key_list=ignore_attr)
     
     # Make dictionary of protected bicycle infrastructure
     protected_dict = dict()
@@ -47,10 +45,9 @@ if __name__ == "__main__":
     # Create new attribute to simplify it
     H = utils.add_edge_attribute(G, protected_dict, 'protected_bicycling')
     
-    H_sim = simplification.simplify_graph(H,
-                                          attributes = 'protected_bicycling')
+    H_sim = simplification.simplify_graph(H, attributes='protected_bicycling')
     H_fin = simplification.multidigraph_to_graph(
-        H_sim, attributes = 'protected_bicycling', verbose = True
+        H_sim, attributes='protected_bicycling', verbose=True
         )
     # Count the number of protected edges and change bool into binary int
     count_protected = 0
@@ -78,13 +75,13 @@ if __name__ == "__main__":
           len(list(H_fin.nodes())), len(list(H_fin.edges()))))
 
     # Use binary int for visualization
-    ec = ox.plot.get_edge_colors_by_attr(H_fin,
-                                         'protected_bicycling',
+    ec = ox.plot.get_edge_colors_by_attr(H_fin, 'protected_bicycling',
                                          cmap='bwr')
     H_fin = nx.MultiGraph(H_fin)
-    ox.plot_graph(H_fin, figsize = (12, 8), bgcolor = 'w', 
-                  node_color = 'black', node_size = 10, edge_color = ec, 
-                   edge_linewidth = 1.5) # red is protected, blue unprotected
+    # Red is protected, blue unprotected
+    ox.plot_graph(H_fin, figsize = (12, 8), bgcolor='w',
+                  node_color='black', node_size=10,
+                  edge_color=ec, edge_linewidth=1.5)
     
     
     

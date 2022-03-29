@@ -3,7 +3,8 @@
 Useful functions to manipulate edge attributes of a networkx graph.
 """
 
-def get_every_edge_attributes(G, ignore_key = []):
+
+def get_every_edge_attributes(G, ignore_key=[]):
     """
     Get all the possible value for all attributes for edges of the graph
     except the ones on a given ignore list.
@@ -49,6 +50,7 @@ def get_every_edge_attributes(G, ignore_key = []):
                     attr_dict[attr] = [G.edges[edge][attr]]
     return attr_dict
 
+
 def get_specific_edge_attributes(G, take_key_list):
     """
     Get all the possible value for specific attributes for edges of the graph.
@@ -89,6 +91,7 @@ def get_specific_edge_attributes(G, take_key_list):
                         G.edges[edge][take_key_list])
     return attr_dict
 
+
 def simplify_edge_attribute_name(G, key, name_list, simple_name):
     """
     Simplify an arbitrary list of name values for a given key into one.
@@ -117,30 +120,33 @@ def simplify_edge_attribute_name(G, key, name_list, simple_name):
                 G.edges[edge][key] = simple_name
     return G
 
-def add_edge_attribute(G, attr_dict, name, bool_response = True):
+
+def add_edge_attribute(G, attr_dict, name, bool_response=True):
     """
-    Add an edge attribute where the value are binary bool based on whether the
-    edge have a specific value for a given attribute, given as a dictionary.
+    Add an edge attribute where the value are binary bool based on
+    whether the edge have a specific value for a given attribute,
+    given as a dictionary.
 
     Parameters
     ----------
     G : networkx Graph/DiGraph/MultiGraph/MultiDiGraph/...
         Graph on which we want to add an attribute.
     attr_dict : dict
-        Dictionary where the key are the key of the edges' attributes and
-        values are the values of those attributes that we want to take into
-        account.
+        Dictionary where the key are the key of the edges' attributes
+        and values are the values of those attributes that we want to
+        take into account.
     name : str
         Name of the new attribute.
     bool_response : bool, optional
-        Bool response if we find one of the values on one of the attributes of
-        the edges from the dictionary. The default is True.
+        Bool response if we find one of the values on one of the
+        attributes of the edges from the dictionary.
+        The default is True.
 
     Raises
     ------
     NameError
-        Raised if the name is already an attribute of an edge of the graph,
-        in order to avoid unintended mix.
+        Raised if the name is already an attribute of an edge
+        of the graph, in order to avoid unintended mix.
 
     Returns
     -------
@@ -163,3 +169,4 @@ def add_edge_attribute(G, attr_dict, name, bool_response = True):
                 else:
                     G.edges[edge][name] = not bool_response
     return G
+

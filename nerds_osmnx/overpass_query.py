@@ -11,6 +11,7 @@ import networkx as nx
 import shapely
 from tqdm import tqdm
 
+
 def get_filtered_graphs(polygon, filter_dict):
     """
     Get every filtered graph coming from a polygon, based on value given as
@@ -38,35 +39,36 @@ def get_filtered_graphs(polygon, filter_dict):
         if 'custom_filter' in filter_info: # the osmnx settings to get them
             _add_tag_way(filter_info['custom_filter'])
     for filter_id, filter_info in tqdm(filter_dict.items(), #tqdm show progress
-                                       desc = 'Networks',
-                                       leave = True):
-        for i in range(0,10): # retry
+                                       desc='Networks', leave=True):
+        for i in range(0, 10): # retry
             try: # either custom_filter or network_type, get graph with osmnx
                 if 'custom_filter' in filter_info:
                     graph_dict[filter_id] = ox.graph_from_polygon(
                         polygon,
-                        custom_filter = (filter_info['custom_filter']),
-                        retain_all = True,
-                        simplify = False
+                        custom_filter=(filter_info['custom_filter']),
+                        retain_all=True,
+                        simplify=False
                         )
                 elif 'network_type' in filter_info:
                     graph_dict[filter_id] = ox.graph_from_polygon(
                         polygon,
                         network_type = (filter_info['network_type']),
-                        retain_all = True,
-                        simplify = False
+                        retain_all=True,
+                        simplify=False
                         )
             except ValueError: # for empty graph because of the filter used
                 graph_dict[filter_id] = nx.empty_graph(
-                    create_using = nx.MultiDiGraph)
+                    create_using=nx.MultiDiGraph
+                    )
                 break
             except:
                 continue
             break
     return graph_dict
 
+
 def _add_tag_way(filter_string):
-    "Add tag way from the filter_string if not present in the osmnx settings"
+    """Add way's tag if not present in the osmnx settings"""
     split_string = filter_string.split(']') # mark end of one attribute
     for i in range(len(split_string) - 1): # avoid last void value
         split_string[i] = split_string[i].split('"')
@@ -74,6 +76,7 @@ def _add_tag_way(filter_string):
     for tag_name in split_string[:-1]: # avoid last void string
         if tag_name not in  ox.settings.useful_tags_way:
             ox.settings.useful_tags_way += [tag_name]
+
 
 def compose_graph(graph_dict, composed_name, name_list):
     """
@@ -111,6 +114,7 @@ def compose_graph(graph_dict, composed_name, name_list):
             subgraph_list.append(graph_dict[name])
         graph_dict[composed_name] = nx.compose_all(subgraph_list)
     return graph_dict
+
 
 if __name__ == "__main__":
     cop = ox.geocode_to_gdf("Copenhagen Municipality")
