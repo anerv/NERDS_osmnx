@@ -1,4 +1,14 @@
-name: nerds_cycling
+name: nerds_osmnx
 channels:
+  - conda-forge
   - defaults
-prefix: C:\Users\cleme\anaconda3\envs\nerds_cycling\envs\nerds_cycling
+dependencies:
+  - python=3.9.7
+  - numpy=1.20.3
+  - geopandas=0.10.2
+  - shapely=1.8.0
+  - networkx=2.5
+  - haversine=2.5.1
+  - osmnx=1.1.2
+  - tqdm=4.62.3
+

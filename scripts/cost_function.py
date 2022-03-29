@@ -78,9 +78,9 @@ if __name__ == "__main__":
     ebet_ec = ox.plot.get_edge_colors_by_attr(G, "edge_betweenness")
     #osmx.plot_graph only take multigraph because it retrieves keys
     G = nx.MultiGraph(G) 
-    # ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
-    #               node_color = 'black', node_size = 30, edge_color = betw_ec, 
-    #               edge_linewidth = 3)
+    ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
+                  node_color = 'black', node_size = 30, edge_color = betw_ec, 
+                  edge_linewidth = 3)
     ox.plot_graph(G, figsize = (12, 8), bgcolor = 'w', 
                   node_color = 'black', node_size = 30, edge_color = ebet_ec, 
                   edge_linewidth = 3)

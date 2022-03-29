@@ -4,7 +4,7 @@ Alternative simplified graph of Copenhagen (and Frederiksberg).
 See protected_bicycling_copenhagen_simplified.py for more explanation.
 """
 import nerds_osmnx.simplification as simplification
-import utils
+import nerds.osmnx.utils as utils
 import osmnx as ox
 import shapely
 import networkx as nx

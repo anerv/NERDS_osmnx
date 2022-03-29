@@ -7,7 +7,7 @@ the criterion of bikewgrowth.
 """
 
 import nerds_osmnx.simplification as simplification
-import utils
+import nerds.osmnx.utils as utils
 import osmnx as ox
 import shapely
 import networkx as nx
