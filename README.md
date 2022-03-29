@@ -25,3 +25,7 @@ Based on the [The Good Research Code Handbook](https://goodresearch.dev/setup.ht
 * Run pip install -e .
 
 ". indicates that we’re installing the package in the current directory. -e indicates that the package should be editable. That means that if you change the files inside the [source] folder, you don’t need to re-install the package for your changes to be picked up by Python."
+
+## Note on requirements.txt and environment.yml
+
+The requirements.txt is made with the full list of packages using the command line "conda list --export > requirements.txt", thus a lot of packages installed with it may not be necessary in order to run the code. The environment.yml file was made manually, installing only the packages specified on the python scripts.

@@ -1,6 +1,7 @@
 name: nerds_osmnx
 channels:
   - conda-forge
+  - anaconda
   - defaults
 dependencies:
   - python=3.9.7
