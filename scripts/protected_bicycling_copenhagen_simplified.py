@@ -7,7 +7,7 @@ the criterion of bikewgrowth.
 """
 
 import nerds_osmnx.simplification as simplification
-import nerds.osmnx.utils as utils
+import nerds_osmnx.utils as utils
 import osmnx as ox
 import shapely
 import networkx as nx
@@ -20,12 +20,17 @@ if __name__ == "__main__":
         if tag_name not in ox.settings.useful_tags_way:
             ox.settings.useful_tags_way += [tag_name]
     
-    # Get the polygon of Copenhagen and Frederiksberg
-    cop = ox.geocode_to_gdf("Copenhagen Municipality")
-    fre = ox.geocode_to_gdf("Frederiksberg Municipality")
-    polygon = shapely.ops.unary_union([cop['geometry'][0], fre['geometry'][0]])
-    # Get the non-simplified graph with the extended list of attributes
-    G = ox.graph_from_polygon(polygon, simplify=False)
+    # # Get the polygon of Copenhagen and Frederiksberg
+    # #TODO: Find a geocode for Copenhagen, old one doesn't work anymore
+    # cop = ox.geocode_to_gdf("Copenhagen Municipality")
+    # fre = ox.geocode_to_gdf("Frederiksberg Municipality")
+    # polygon = shapely.ops.unary_union([cop['geometry'][0], fre['geometry'][0]])
+    
+    # # Get the non-simplified graph with the extended list of attributes
+    # G = ox.graph_from_polygon(polygon, simplify=False)
+    
+    REGION_COORD = [55.716, 55.555, 12.489, 12.681]
+    G = ox.graph_from_bbox(*REGION_COORD, simplify=False)
     G_sim = simplification.simplify_graph(G)
     G_com = ox.simplify_graph(G)
     
@@ -49,16 +54,17 @@ if __name__ == "__main__":
     H_fin = simplification.multidigraph_to_graph(
         H_sim, attributes='protected_bicycling', verbose=True
         )
+    H_mul = H_fin.copy()
     # Count the number of protected edges and change bool into binary int
     count_protected = 0
-    for edge in H_fin.edges:
-        if H_fin.edges[edge]['protected_bicycling'] is True:
-            H_fin.edges[edge]['protected_bicycling'] = 1
+    for edge in H_mul.edges:
+        if H_mul.edges[edge]['protected_bicycling'] is True:
+            H_mul.edges[edge]['protected_bicycling'] = 1
             count_protected += 1
         else:
-            H_fin.edges[edge]['protected_bicycling'] = 0
-    ratio = 1 - (len(list(H_fin.edges))
-                 - count_protected) / len(list(H_fin.edges))
+            H_mul.edges[edge]['protected_bicycling'] = 0
+    num_edges = len(list(H_mul.edges))
+    ratio = 1 - (num_edges - count_protected) / num_edges
     print("{}% of protected edges".format(round((ratio * 100), 2)))
 
     # Basic statistics
@@ -75,13 +81,15 @@ if __name__ == "__main__":
           len(list(H_fin.nodes())), len(list(H_fin.edges()))))
 
     # Use binary int for visualization
-    ec = ox.plot.get_edge_colors_by_attr(H_fin, 'protected_bicycling',
+    ec = ox.plot.get_edge_colors_by_attr(H_mul, 'protected_bicycling',
                                          cmap='bwr')
-    H_fin = nx.MultiGraph(H_fin)
+    H_mul = nx.MultiGraph(H_mul)
     # Red is protected, blue unprotected
-    ox.plot_graph(H_fin, figsize = (12, 8), bgcolor='w',
-                  node_color='black', node_size=10,
-                  edge_color=ec, edge_linewidth=1.5)
+    ox.plot_graph(H_mul, figsize = (12, 8), bgcolor='w',
+                  node_color='black', node_size=5,
+                  edge_color=ec, edge_linewidth=2)
+
+    # nx.write_gpickle(H_sim, "copenhagen_multidigraph_simplified.gpickle")
     
     
     
