@@ -895,18 +895,21 @@ def momepy_simplify_graph(G, attributes=None,
     if "simplified" in G.graph and G.graph["simplified"]:
         raise Exception("This graph has already been simplified, cannot simplify it again.")
 
+    # define edge segment attributes to sum upon edge simplification
+    attrs_to_sum = {"length", "travel_time"}
+
     # make a copy to not mutate original graph object caller passed in
     G = G.copy()
     all_nodes_to_remove = []
     all_edges_to_add = []
+    
 
     # generate each path that needs to be simplified
     for path in _get_paths_to_simplify(G, attributes=attributes,
                                        strict=strict):
-
         # add the interstitial edges we're removing to a list so we can retain
         # their spatial geometry
-        edge_attributes = dict()
+        path_attributes = dict()
         geometry_batch = []
         for u, v in zip(path[:-1], path[1:]):
 
@@ -916,38 +919,44 @@ def momepy_simplify_graph(G, attributes=None,
 
             # get edge between these nodes: if multiple edges exist between
             # them (see above), we retain only one in the simplified graph
-            edge = G.edges[u, v, 0]
-            geometry_batch.append(edge['geometry'])
-            for key in edge:
-                if key == 'geometry':
+            edge_data = G.edges[u, v, 0]
+            geometry_batch.append(edge_data['geometry'])
+            for attr in edge_data:
+                if attr == 'geometry':
                     pass
-                elif key in edge_attributes:
+                if attr in path_attributes:
                     # if this key already exists in the dict, append it to the
                     # value list
-                    edge_attributes[key].append(edge[key])
+                    path_attributes[attr].append(edge_data[attr])
                 else:
                     # if this key doesn't already exist, set the value to a list
                     # containing the one value
-                    edge_attributes[key] = [edge[key]]
+                    path_attributes[attr] = [edge_data[attr]]
+
+        # consolidate the path's edge segments' attribute values
+        for attr in path_attributes:
+            if attr in attrs_to_sum:
+                # if this attribute must be summed, sum it now
+                path_attributes[attr] = sum(path_attributes[attr])
+            elif len(set(path_attributes[attr])) == 1:
+                # if there's only 1 unique value in this attribute list,
+                # consolidate it to the single value (the zero-th):
+                path_attributes[attr] = path_attributes[attr][0]
+            else:
+                # otherwise, if there are multiple values, keep one of each
+                path_attributes[attr] = list(set(path_attributes[attr]))
+                
         # construct the geometry and sum the lengths of the segments
         multi_line = shapely.geometry.MultiLineString(geometry_batch)
-        edge_attributes["geometry"] = shapely.ops.linemerge(multi_line)
-        edge_attributes["length"] = sum(edge_attributes["length"])
-
-        if not attributes is None:
-            if isinstance(attributes, list):
-                for attr in attributes:
-                    edge_attributes[attr] = edge_attributes[attr][0]
-            else:
-                edge_attributes[attributes] = edge_attributes[attributes][0]
+        path_attributes["geometry"] = shapely.ops.linemerge(multi_line)
 
         # add the nodes and edges to their lists for processing at the end
         all_nodes_to_remove.extend(path[1:-1])
         all_edges_to_add.append(
             {"origin": path[0], "destination": path[-1],
-             "attr_dict": edge_attributes}
+             "attr_dict": path_attributes}
         )
-
+ 
     # for each edge to add in the list we assembled, create a new edge between
     # the origin and destination
     for edge in all_edges_to_add:
