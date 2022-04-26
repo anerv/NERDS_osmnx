@@ -935,9 +935,20 @@ def momepy_simplify_graph(G, attributes=None,
 
         # consolidate the path's edge segments' attribute values
         for attr in path_attributes:
+            # we want to make a flat list to be able to hash it
+            temp = path_attributes[attr]
+            for i in range(len(temp)):
+                if isinstance(temp[i],list):
+                    pass
+                else:
+                    temp[i] = [temp[i]]
+            temp = [item for sublist in temp for item in sublist]
+            path_attributes[attr] = temp
             if attr in attrs_to_sum:
                 # if this attribute must be summed, sum it now
                 path_attributes[attr] = sum(path_attributes[attr])
+            elif attr == 'geometry':
+                pass
             elif len(set(path_attributes[attr])) == 1:
                 # if there's only 1 unique value in this attribute list,
                 # consolidate it to the single value (the zero-th):

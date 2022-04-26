@@ -11,6 +11,7 @@ import nerds_osmnx.utils as utils
 import osmnx as ox
 import shapely
 import networkx as nx
+import geopandas as gpd
 
 if __name__ == "__main__":
     # First add every necessary tag on the tag_list so we can filter with them
@@ -24,13 +25,15 @@ if __name__ == "__main__":
     # #TODO: Find a geocode for Copenhagen, old one doesn't work anymore
     # cop = ox.geocode_to_gdf("Copenhagen Municipality")
     # fre = ox.geocode_to_gdf("Frederiksberg Municipality")
-    # polygon = shapely.ops.unary_union([cop['geometry'][0], fre['geometry'][0]])
+    cop = gpd.read_file("polygon_copenhagen.geojson")
+    fre = gpd.read_file("polygon_frederiksberg.geojson")
+    polygon = shapely.ops.unary_union([cop['geometry'][0], fre['geometry'][0]])
     
-    # # Get the non-simplified graph with the extended list of attributes
-    # G = ox.graph_from_polygon(polygon, simplify=False)
+    # Get the non-simplified graph with the extended list of attributes
+    G = ox.graph_from_polygon(polygon, simplify=False)
     
-    REGION_COORD = [55.716, 55.555, 12.489, 12.681]
-    G = ox.graph_from_bbox(*REGION_COORD, simplify=False)
+    # REGION_COORD = [55.716, 55.555, 12.489, 12.681]
+    # G = ox.graph_from_bbox(*REGION_COORD, simplify=False)
     G_sim = simplification.simplify_graph(G)
     G_com = ox.simplify_graph(G)
     
@@ -89,7 +92,7 @@ if __name__ == "__main__":
                   node_color='black', node_size=5,
                   edge_color=ec, edge_linewidth=2)
 
-    # nx.write_gpickle(H_sim, "copenhagen_multidigraph_simplified.gpickle")
+    # nx.write_gpickle(H_fin, "copenhagen_graph_simplified.gpickle")
     
     
     

@@ -3,6 +3,7 @@
 Useful functions to manipulate edge attributes of a networkx graph.
 """
 
+import networkx as nx
 
 def get_every_edge_attributes(G, ignore_key=[]):
     """
