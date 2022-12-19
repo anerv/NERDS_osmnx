@@ -9,6 +9,8 @@ If you use OSMnx in your work, please cite the journal article.
 
 ## Changes to OSMnx
 
+Changes made by Clément Sebastiao with the help of Ane Rahbek Vierø and Anastassia Vybornova.
+
 Based on the osmnx.simplification.simplify_graph function of **OSMnx**, we want to adapt it in such a way that it can avoid to simplify nodes where an attribute ( from an arbitrary list of attributes optionally given as an input) differ between the edges. To use network theory terminology, this is a way to generalize the function to multilayer graph. It allows us to simplify **OpenStreetMap** datafile while keeping the informations on the attributes we want to look at, for instance to discriminate between primary and secondary highway, or lane with and without bicycle path, information that is lost otherwise with the function from **OSMnx**.
 
 After such simplification where we remove unnecessary (because we don't loose information without them) interstitional (because they are between other nodes) nodes, we want to independently be able to simplify the structure of the network while loosing as less as possible information :
